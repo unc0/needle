@@ -16,12 +16,12 @@ describe('stream', function() {
         res.end('{"foo":"bar"}');
       }).listen(port);
       serverTimeout = http.createServer(function(req, res) {
-        setTimeout(function() { res.end(); }, 3);
+        setTimeout(function() { res.end(); }, 300);
       }).listen(port + 1);
       serverTimeoutOnResponse = http.createServer(function(req, res) {
         res.setHeader('Content-Type', 'application/json');
         res.write('a');
-        setTimeout(function() { res.end('bcde'); }, 3);
+        setTimeout(function() { res.end('bcde'); }, 300);
       }).listen(port + 2);
     });
 
@@ -79,28 +79,44 @@ describe('stream', function() {
       })
 
       it('should emit error event and the argument is an Error instance.', function(done) {
-        var stream     = needle.get('localhost:' + (port + 1), {timeout: 1});
+        var stream     = needle.get('localhost:' + (port + 1), {timeout: 50});
 
-        stream.on('error', function (err) {
+        stream.on('end', function (err) {
           err.should.be.an.instanceOf(Error);
           done();
         });
       })
 
       it('should emit timeout event if request timeout.', function(done) {
-        var stream     = needle.get('localhost:' + (port + 1), {timeout: 1});
+        var stream     = needle.get('localhost:' + (port + 1), {timeout: 50});
 
         stream.on('timeout', function (what) {
           what.should.equal('request');
+        });
+        stream.on('end', function (err) {
+          err.should.be.an.instanceOf(Error);
           done();
         });
       })
 
       it('should emit timeout event if response timeout.', function(done) {
-        var stream     = needle.get('localhost:' + (port + 2), {timeout: 1});
+        var stream     = needle.get('localhost:' + (port + 2), {timeout: 50});
 
         stream.on('timeout', function (what) {
           what.should.equal('response');
+          done();
+        });
+      })
+
+      it('should stop after options.retries times and ends with an error', function(done) {
+        var stream     = needle.get('localhost:' + (port + 1), {timeout: 20, retries: 2});
+
+        var count = 0;
+        stream.on('retry', function (what) {
+          what.should.equal(++count);
+        });
+        stream.on('end', function (err) {
+          err.should.be.an.instanceOf(Error);
           done();
         });
       })
